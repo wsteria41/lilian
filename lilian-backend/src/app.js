@@ -1,8 +1,11 @@
+require('dotenv').config()
+
 const express = require('express')
 const cors = require('cors')
 const pool = require('./config/db')
 const authRoutes = require('./routes/authRoutes')
-require('dotenv').config()
+const productRoutes = require('./routes/productRoutes')
+
 
 const app = express()
 
@@ -10,6 +13,7 @@ app.use(cors())
 app.use(express.json())
 
 app.use('/api/auth', authRoutes)
+app.use('/api/products', productRoutes)
 
 app.get('/', (req, res) => {
     res.json({message: 'Lilian backend API running.'})
