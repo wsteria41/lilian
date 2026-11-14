@@ -78,5 +78,22 @@ async function uploadImage(req, res) {
 }
 
 
+async function deleteImage(req, res){
+    try{
+        const result = await productService.deleteImage(req.params.imageId);
+        res.json(result); 
+    }catch(err){
+        res.status(500).json({error: err.message});
+    }
+}
 
-module.exports = { getAll, getById, create, update, deleteProduct: deleteProduct, addVariant, getVariants, uploadImage }
+async function deleteVariant(req, res){
+    try{
+        const result = await productService.deleteVariant(req.params.variantId);
+        res.json(result);
+    }catch(err){
+        res.status(500).json({error: err.message});
+    }
+}
+
+module.exports = { getAll, getById, create, update, deleteProduct: deleteProduct, addVariant, getVariants, uploadImage, deleteImage, deleteVariant }

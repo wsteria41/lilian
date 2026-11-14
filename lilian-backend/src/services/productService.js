@@ -2,15 +2,21 @@ const pool = require('../config/db')
 const cloudinary = require('../config/cloudinary')
 
 async function getAll(category) {
-    let query = 'SELECT * FROM products'
-    let params = []
+    let query = `
+        SELECT p.*,
+          COALESCE((
+            SELECT json_agg(json_build_object('image_url', i.image_url) ORDER BY i.is_primary DESC, i.id)
+            FROM product_images i WHERE i.product_id = p.id
+          ), '[]') AS images
+        FROM products p`
+    const params = []
 
     if (category) {
-        query += ' WHERE category = $1'
+        query += ' WHERE p.category = $1'
         params.push(category)
     }
 
-    query += ' ORDER BY created_at DESC'
+    query += ' ORDER BY p.created_at DESC'
     const result = await pool.query(query, params)
     return result.rows
 }
@@ -93,4 +99,14 @@ async function uploadImage(productId, file){
     return image.rows[0]
 }
 
-module.exports = { getAll, getById, create, update, deleteProduct, addVariant, getVariants, uploadImage }
+async function deleteImage(imageId){
+    await pool.query('DELETE FROM product_images WHERE id = $1', [imageId])
+    return { message: 'Image deleted'}
+}
+
+async function deleteVariant(variantId){
+    await pool.query('DELETE FROM product_variants WHERE id = $1', [variantId])
+    return { message: 'Variant deleted'}
+}
+
+module.exports = { getAll, getById, create, update, deleteProduct, addVariant, getVariants, uploadImage, deleteImage, deleteVariant }

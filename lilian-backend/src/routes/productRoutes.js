@@ -1,21 +1,24 @@
-const express = require('express');
-const router = express.Router();
-const productController = require('../controllers/productController');
+const express = require('express')
+const router = express.Router()
+const productController = require('../controllers/productController')
 const authMiddleware = require('../middlewares/authMiddleware')
-const upload = require('../middlewares/upload.middleware');
+const adminMiddleware = require('../middlewares/adminMiddleware')
+const upload = require('../middlewares/upload.middleware')
 
-//public route
-router.get('/', productController.getAll);
-router.get('/', productController.getById);
+// Public
+router.get('/', productController.getAll)
+router.get('/:id', productController.getById)
+router.get('/:id/variants', productController.getVariants)
 
-router.post('/:id/variants', authMiddleware, productController.addVariant);
-router.get('/:id/variants', productController.getVariants);
+// Admin only
+router.post('/', authMiddleware, adminMiddleware, productController.create)
+router.post('/:id/variants', authMiddleware, adminMiddleware, productController.addVariant)
+router.post('/:id/images', authMiddleware, adminMiddleware, upload.single('image'), productController.uploadImage)
 
-//admin only routes
-router.post('/', authMiddleware, productController.create);
-router.put('/', authMiddleware, productController.update);
-router.delete('/', authMiddleware, productController.deleteProduct);
+router.delete('/images/:imageId', authMiddleware, adminMiddleware, productController.deleteImage)
+router.delete('/variants/:variantId', authMiddleware, adminMiddleware, productController.deleteVariant)
 
-router.post('/:id/images', authMiddleware, upload.single('image'), productController.uploadImage);
+router.put('/:id', authMiddleware, adminMiddleware, productController.update)
+router.delete('/:id', authMiddleware, adminMiddleware, productController.deleteProduct)
 
-module.exports = router;
+module.exports = router

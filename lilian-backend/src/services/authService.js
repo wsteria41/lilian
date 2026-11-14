@@ -15,8 +15,8 @@ async function register(name, email, password){
 
     //user uusgeh
     const result = await pool.query(
-        'INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id, name, email',
-        [name, email, hashedPassword]
+        'INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4) RETURNING id, name, email, role',
+        [name, email, hashedPassword, 'customer']
     );
 
     return{
