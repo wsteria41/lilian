@@ -5,7 +5,6 @@ import { useParams } from "next/navigation";
 import { useCart } from "../../context/CartContext";
 
 import Link from "next/link";
-import { name } from "sip.js";
 import { API } from "../../lib/api";
 
 export default function ProductDetailPage() {
