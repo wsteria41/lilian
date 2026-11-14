@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+@theme {
+  --color-lily-white: #FFFFFF;
+  --color-lily-blush: #FFF0F5;
+  --color-lily-soft: #FFD6E7;
+  --color-lily-pink: #FFB3D1;
+  --color-lily-accent: #FF8FB1;
+  --color-lily-rose: #C9184A;
+  --color-lily-deep: #A01040;
+  --color-lily-text: #1a1a1a;
+  --color-lily-muted: #9A6E7C;
+  --color-lily-border: #F0D6E0;
+
+  --font-display: Georgia, serif;
+}
+
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-33.333%); }
+}
