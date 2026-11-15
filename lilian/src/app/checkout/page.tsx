@@ -8,9 +8,41 @@ import { API } from '../lib/api'
 
 const DISTRICTS = ['Баянзүрх', 'Сонгинохайрхан', 'Баянгол', 'Хан-Уул', 'Сүхбаатар', 'Чингэлтэй', 'Налайх', 'Багануур', 'Багахангай']
 
+const BANK = {
+  name: process.env.NEXT_PUBLIC_BANK_NAME || '',
+  account: process.env.NEXT_PUBLIC_BANK_ACCOUNT || '',
+  owner: process.env.NEXT_PUBLIC_BANK_OWNER || '',
+}
+
+function BankBox({ amount, orderId }: { amount?: number; orderId?: number }) {
+  const [copied, setCopied] = useState(false)
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(BANK.account)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {}
+  }
+  return (
+    <div className="text-sm bg-lily-blush rounded-xl p-4 text-lily-text space-y-1.5 text-left">
+      <p>Банк: <b>{BANK.name}</b></p>
+      <p className="flex items-center gap-2">
+        Данс: <b>{BANK.account}</b>
+        <button type="button" onClick={copy} className="text-xs text-lily-rose underline">
+          {copied ? 'Хуулсан ✓' : 'Хуулах'}
+        </button>
+      </p>
+      <p>Хүлээн авагч: <b>{BANK.owner}</b></p>
+      {amount !== undefined && <p>Төлөх дүн: <b>{amount.toLocaleString()}₮</b></p>}
+      <p>Гүйлгээний утга: <b>{orderId ? `#${orderId}` : 'Захиалгын дугаар'}</b></p>
+    </div>
+  )
+}
+
 export default function CheckoutPage() {
   const { cart, totalPrice, clearCart } = useCart()
   const router = useRouter()
+  const [authed, setAuthed] = useState<boolean | null>(null)
   const [district, setDistrict] = useState(DISTRICTS[0])
   const [address, setAddress] = useState('')
   const [phone, setPhone] = useState('')
@@ -18,7 +50,7 @@ export default function CheckoutPage() {
   const [payment, setPayment] = useState<'cod' | 'transfer'>('cod')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [orderId, setOrderId] = useState<number | null>(null)
+  const [done, setDone] = useState<{ id: number; total: number; method: 'cod' | 'transfer' } | null>(null)
 
   const shipping = totalPrice > 200000 ? 0 : 10000
   const inputClass =
@@ -26,8 +58,13 @@ export default function CheckoutPage() {
   const label = 'text-[10px] font-semibold tracking-widest uppercase text-lily-muted block mb-1.5'
 
   useEffect(() => {
-    if (!localStorage.getItem('token')) router.push('/auth')
-  }, [router])
+    setAuthed(!!localStorage.getItem('token'))
+  }, [])
+
+  const goLogin = () => {
+    localStorage.setItem('redirectAfterLogin', '/checkout')
+    router.push('/auth')
+  }
 
   const handleOrder = async () => {
     setError('')
@@ -50,9 +87,15 @@ export default function CheckoutPage() {
           payment_method: payment,
         }),
       })
+      if (res.status === 401) {
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+        setAuthed(false)
+        return
+      }
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Алдаа гарлаа')
-      setOrderId(data.order.id)
+      setDone({ id: data.order.id, total: Number(data.order.total_price), method: payment })
       clearCart()
     } catch (err: any) {
       setError(err.message)
@@ -61,28 +104,65 @@ export default function CheckoutPage() {
     }
   }
 
-  if (orderId) {
+  if (authed === null) return null
+
+  if (!authed) {
     return (
       <div className="pt-16 min-h-screen bg-lily-blush flex items-center justify-center px-4">
-        <div className="text-center max-w-md bg-white rounded-3xl p-10">
+        <div className="w-full max-w-md bg-white rounded-3xl p-10 text-center shadow-sm">
+          <div className="w-16 h-16 rounded-full bg-lily-soft flex items-center justify-center mx-auto mb-5">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#C9184A" strokeWidth="1.5">
+              <rect x="3" y="11" width="18" height="11" rx="2" />
+              <path d="M7 11V7a5 5 0 0110 0v4" />
+            </svg>
+          </div>
+          <h1 className="font-display text-2xl text-lily-text mb-2">Захиалга өгөхийн тулд нэвтэрнэ үү</h1>
+          <p className="text-sm text-lily-muted leading-relaxed mb-7">
+            Захиалгын түүх, хүргэлтийн төлвөө хянахын тулд бүртгэлтэй байх шаардлагатай. Таны сагс хэвээр хадгалагдана.
+          </p>
+          <button
+            onClick={goLogin}
+            className="w-full bg-lily-rose text-white font-semibold text-sm py-4 rounded-2xl hover:bg-lily-deep"
+          >
+            Нэвтрэх / Бүртгүүлэх
+          </button>
+          <Link href="/cart" className="block mt-4 text-sm text-lily-muted hover:text-lily-rose">
+            ← Сагс руу буцах
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  if (done) {
+    return (
+      <div className="pt-16 min-h-screen bg-lily-blush flex items-center justify-center px-4">
+        <div className="text-center w-full max-w-md bg-white rounded-3xl p-10">
           <div className="w-20 h-20 rounded-full bg-lily-soft flex items-center justify-center mx-auto mb-5">
             <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#C9184A" strokeWidth="2">
               <polyline points="20 6 9 17 4 12" />
             </svg>
           </div>
           <h1 className="font-display text-2xl text-lily-text mb-2">Захиалга амжилттай!</h1>
-          <p className="text-sm text-lily-muted mb-1">Захиалгын дугаар: #{orderId}</p>
-          {payment === 'transfer' && (
-            <p className="text-sm text-lily-rose mt-4 bg-lily-blush rounded-xl p-4">
-              Дансаар шилжүүлэх бол гүйлгээний утга дээр <b>#{orderId}</b> гэж бичнэ үү.
+          <p className="text-sm text-lily-muted mb-5">Захиалгын дугаар: <b>#{done.id}</b></p>
+          {done.method === 'transfer' ? (
+            <div className="mb-2">
+              <p className="text-sm text-lily-text mb-3">
+                Доорх дансанд шилжүүлээд гүйлгээний утга дээр <b>#{done.id}</b> гэж бичнэ үү. Төлбөр баталгаажмагц захиалгыг бэлдэнэ.
+              </p>
+              <BankBox amount={done.total} orderId={done.id} />
+            </div>
+          ) : (
+            <p className="text-sm text-lily-text">
+              Бараагаа хүлээн авахдаа <b>{done.total.toLocaleString()}₮</b> төлнө.
             </p>
           )}
           <div className="flex gap-3 mt-8 justify-center">
             <Link href="/account" className="px-6 py-3 rounded-full border border-lily-border text-sm font-semibold text-lily-muted hover:text-lily-rose">
-              Захиалгууд
+              Миний захиалгууд
             </Link>
             <Link href="/" className="px-6 py-3 rounded-full bg-lily-rose text-white text-sm font-semibold hover:bg-lily-deep">
-              Дэлгүүрлэх
+              Дэлгүүр хэсэх
             </Link>
           </div>
         </div>
@@ -91,7 +171,12 @@ export default function CheckoutPage() {
   }
 
   if (cart.length === 0) {
-    return <div className="pt-16 min-h-screen flex items-center justify-center text-lily-muted">Сагс хоосон байна</div>
+    return (
+      <div className="pt-16 min-h-screen flex flex-col items-center justify-center text-lily-muted gap-4">
+        <p>Сагс хоосон байна</p>
+        <Link href="/" className="text-lily-rose text-sm font-semibold hover:underline">Дэлгүүр хэсэх</Link>
+      </div>
+    )
   }
 
   return (
@@ -101,7 +186,6 @@ export default function CheckoutPage() {
 
         <div className="grid lg:grid-cols-3 gap-8 items-start">
           <div className="lg:col-span-2 space-y-5">
-            {/* Холбоо барих */}
             <div className="bg-white rounded-3xl p-7">
               <h2 className="font-display text-xl text-lily-text mb-5">1. Холбоо барих</h2>
               <label className={label}>Утасны дугаар</label>
@@ -116,7 +200,6 @@ export default function CheckoutPage() {
               />
             </div>
 
-            {/* Хаяг */}
             <div className="bg-white rounded-3xl p-7 space-y-4">
               <h2 className="font-display text-xl text-lily-text">2. Хүргэлтийн хаяг</h2>
               <div>
@@ -138,12 +221,11 @@ export default function CheckoutPage() {
               <p className="text-xs text-lily-muted">Улаанбаатар хотод 1–3 хоногт хүргэнэ.</p>
             </div>
 
-            {/* Төлбөр */}
             <div className="bg-white rounded-3xl p-7">
               <h2 className="font-display text-xl text-lily-text mb-5">3. Төлбөр</h2>
               <div className="space-y-3">
                 {([
-                  ['cod', 'Хүргэлтээр бэлнээр', 'Бараагаа хүлээж авахдаа төлнө'],
+                  ['cod', 'Хүргэлтээр бэлнээр', 'Бараагаа хүлээн авахдаа төлнө'],
                   ['transfer', 'Дансаар шилжүүлэх', 'Захиалгын дараа заасан дансанд шилжүүлнэ'],
                 ] as const).map(([key, title, sub]) => (
                   <button
@@ -164,11 +246,11 @@ export default function CheckoutPage() {
                 ))}
               </div>
               {payment === 'transfer' && (
-                <div className="mt-4 text-sm bg-lily-blush rounded-xl p-4 text-lily-text">
-                  {/* Өөрийн дансны мэдээллээр солино */}
-                  Банк: <b>БАНКНЫ НЭР</b><br />
-                  Данс: <b>ДАНСНЫ ДУГААР</b><br />
-                  Хүлээн авагч: <b>НЭР</b>
+                <div className="mt-4">
+                  <BankBox amount={totalPrice + shipping} />
+                  <p className="text-xs text-lily-muted mt-2">
+                    Захиалга өгсний дараа гарах захиалгын дугаараа гүйлгээний утга дээр бичнэ.
+                  </p>
                 </div>
               )}
             </div>
@@ -184,7 +266,6 @@ export default function CheckoutPage() {
             </button>
           </div>
 
-          {/* Summary */}
           <div className="bg-white rounded-3xl p-6 lg:sticky lg:top-24">
             <h3 className="font-display text-lg text-lily-text mb-4">Таны захиалга</h3>
             <div className="space-y-3 mb-4">

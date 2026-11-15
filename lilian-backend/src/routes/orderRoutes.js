@@ -12,5 +12,6 @@ router.get('/:id', authMiddleware, orderController.getById);
 //admin routes
 router.get('/', authMiddleware, adminMiddleware, orderController.getAll);
 router.put('/:id/status', authMiddleware, adminMiddleware, orderController.updateStatus)
+router.put('/:id/payment', authMiddleware, adminMiddleware, orderController.updatePayment)
 
 module.exports = router;

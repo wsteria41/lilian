@@ -119,13 +119,13 @@ export default function CartPage() {
                   href="/"
                   className="w-full mt-2 text-center text-sm text-lily-muted hover:text-lily-rose py-2 block"
                 >
-                  ← Дэлгүүрлэх
+                  ← Дэлгүүр хэсэх
                 </Link>
               </div>
             </div>
           </div>
         )}
       </div>
-    </div>
+    </div>  
   )
 }

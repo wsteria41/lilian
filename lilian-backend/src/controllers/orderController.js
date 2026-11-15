@@ -47,4 +47,13 @@ async function updateStatus(req, res) {
     }
 }
 
-module.exports = { create, getMyOrders, getById, getAll, updateStatus }
+async function updatePayment(req, res) {
+    try {
+        const result = await orderService.updatePayment(req.params.id, req.body.payment_status)
+        res.json(result)
+    } catch (err) {
+        res.status(500).json({ error: err.message })
+    }
+}
+
+module.exports = { create, getMyOrders, getById, getAll, updateStatus, updatePayment }

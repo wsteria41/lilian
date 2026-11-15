@@ -36,9 +36,10 @@ async function create(
       totalPrice += product.rows[0].price * item.quantity;
     }
 
+    const shippingFee = totalPrice > 200000 ? 0 : 10000;
     const order = await client.query(
-      "INSERT INTO orders (user_id, total_price, payment_method) VALUES ($1, $2, $3) RETURNING *",
-      [userId, totalPrice, method],
+      "INSERT INTO orders (user_id, total_price, payment_method, shipping_fee) VALUES ($1, $2, $3, $4) RETURNING *",
+      [userId, totalPrice + shippingFee, method, shippingFee],
     );
     const orderId = order.rows[0].id;
 
@@ -64,9 +65,9 @@ async function create(
       );
     }
     await client.query(
-        'INSERT INTO deliveries (order_id, address, phone, note) VALUES ($1, $2, $3, $4)',
-        [orderId, deliveryAddress, phone, note || null]
-    )
+      "INSERT INTO deliveries (order_id, address, phone, note) VALUES ($1, $2, $3, $4)",
+      [orderId, deliveryAddress, phone, note || null],
+    );
 
     await client.query("COMMIT");
     return { message: "Order created successfully", order: order.rows[0] };
@@ -101,10 +102,22 @@ async function getById(id) {
 }
 
 async function getAll() {
-  const result = await pool.query(
-    "SELECT * FROM orders ORDER BY created_at DESC",
-  );
-  return result.rows;
+    const result = await pool.query(`
+        SELECT o.*, u.name AS user_name, d.address, d.phone, d.note
+        FROM orders o
+        JOIN users u ON u.id = o.user_id
+        LEFT JOIN deliveries d ON d.order_id = o.id
+        ORDER BY o.created_at DESC`)
+    return result.rows
+}
+
+async function updatePayment(id, paymentStatus) {
+    if (!['unpaid', 'paid'].includes(paymentStatus)) throw new Error('Буруу төлөв')
+    const result = await pool.query(
+        'UPDATE orders SET payment_status = $1 WHERE id = $2 RETURNING *',
+        [paymentStatus, id]
+    )
+    return result.rows[0]
 }
 
 async function updateStatus(id, status) {
@@ -115,4 +128,4 @@ async function updateStatus(id, status) {
   return result.rows[0];
 }
 
-module.exports = { getAll, getById, getMyOrders, updateStatus, create };
+module.exports = { getAll, getById, getMyOrders, updateStatus, updatePayment, create };

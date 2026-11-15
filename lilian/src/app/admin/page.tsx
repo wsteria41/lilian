@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 
-import { API } from '../lib/api'
+import { API } from "../lib/api";
 
 interface Variant {
   id: number;
@@ -28,7 +28,19 @@ interface Order {
   total_price: string;
   status: string;
   created_at: string;
+  user_name: string;
+  payment_method: string;
+  payment_status: string;
+  address: string | null;
+  phone: string | null;
+  note: string | null;
 }
+
+const SIZE_PRESETS: Record<string, string[]> = {
+  clothes: ["XS", "S", "M", "L", "XL", "XXL", "XXXL", "Free size"],
+  shoes: ["35", "36", "37", "38", "39", "40", "41", "42"],
+  jewelry: ["Free size"],
+};
 
 const STATUSES = [
   { value: "pending", label: "Хүлээгдэж байна" },
@@ -56,7 +68,15 @@ export default function AdminPage() {
     variants: Variant[];
     images: Img[];
   } | null>(null);
-  const [vForm, setVForm] = useState({ size: "", color: "", stock: "" });
+  const [vForm, setVForm] = useState<{
+    sizes: string[];
+    color: string;
+    stock: string;
+  }>({
+    sizes: [],
+    color: "",
+    stock: "",
+  });
   const [uploading, setUploading] = useState(false);
 
   const token = () => localStorage.getItem("token") || "";
@@ -136,6 +156,16 @@ export default function AdminPage() {
     if (res.ok) loadOrders();
   };
 
+  const togglePaid = async (o: Order) => {
+    const next = o.payment_status === "paid" ? "unpaid" : "paid";
+    const res = await fetch(`${API}/orders/${o.id}/payment`, {
+      method: "PUT",
+      headers: authHeaders(),
+      body: JSON.stringify({ payment_status: next }),
+    });
+    if (res.ok) loadOrders();
+  };
+
   const openEdit = async (id: number) => {
     if (editing === id) {
       setEditing(null);
@@ -154,28 +184,29 @@ export default function AdminPage() {
     setDetail({ variants: data.variants || [], images: data.images || [] });
   };
 
-  const addVariant = async (id: number) => {
+  const addVariants = async (p: Product) => {
     setError("");
-    if (!vForm.size.trim() || !vForm.color.trim() || vForm.stock === "") {
-      setError("Хэмжээ, өнгө, үлдэгдлийг бүгдийг нь оруулна уу");
+    if (vForm.sizes.length === 0 || !vForm.color.trim() || vForm.stock === "") {
+      setError("Хэмжээ (нэг буюу хэд хэдэн), өнгө, тоо ширхэгийг оруулна уу");
       return;
     }
-    const res = await fetch(`${API}/products/${id}/variants`, {
-      method: "POST",
-      headers: authHeaders(),
-      body: JSON.stringify({
-        size: vForm.size,
-        color: vForm.color,
-        stock: Number(vForm.stock),
-      }),
-    });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setError(data.error || "Variant нэмж чадсангүй");
-      return;
-    }
-    setVForm({ size: "", color: "", stock: "" });
-    reloadDetail(id);
+    const results = await Promise.all(
+      vForm.sizes.map((size) =>
+        fetch(`${API}/products/${p.id}/variants`, {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({
+            size,
+            color: vForm.color.trim(),
+            stock: Number(vForm.stock),
+          }),
+        }),
+      ),
+    );
+    if (results.some((r) => !r.ok))
+      setError("Зарим variant нэмэгдсэнгүй, жагсаалтаа шалгана уу");
+    setVForm({ sizes: [], color: "", stock: "" });
+    reloadDetail(p.id);
   };
 
   const uploadImage = async (id: number, file: File) => {
@@ -417,18 +448,36 @@ export default function AdminPage() {
                                 </div>
                               ))}
                             </div>
-                            <div className="grid grid-cols-4 gap-2">
+                            <div className="flex flex-wrap gap-2 mb-3">
+                              {(SIZE_PRESETS[p.category] || []).map((s) => {
+                                const on = vForm.sizes.includes(s);
+                                return (
+                                  <button
+                                    key={s}
+                                    type="button"
+                                    onClick={() =>
+                                      setVForm({
+                                        ...vForm,
+                                        sizes: on
+                                          ? vForm.sizes.filter((x) => x !== s)
+                                          : [...vForm.sizes, s],
+                                      })
+                                    }
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                                      on
+                                        ? "bg-lily-text text-white border-lily-text"
+                                        : "bg-white text-lily-muted border-lily-border hover:border-lily-pink"
+                                    }`}
+                                  >
+                                    {s}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            <div className="grid grid-cols-3 gap-2">
                               <input
                                 className={inputClass}
-                                placeholder="Хэмжээ"
-                                value={vForm.size}
-                                onChange={(e) =>
-                                  setVForm({ ...vForm, size: e.target.value })
-                                }
-                              />
-                              <input
-                                className={inputClass}
-                                placeholder="Өнгө"
+                                placeholder="Өнгө (Цагаан)"
                                 value={vForm.color}
                                 onChange={(e) =>
                                   setVForm({ ...vForm, color: e.target.value })
@@ -437,19 +486,23 @@ export default function AdminPage() {
                               <input
                                 type="number"
                                 className={inputClass}
-                                placeholder="Тоо"
+                                placeholder="Тоо (хэмжээ бүрт)"
                                 value={vForm.stock}
                                 onChange={(e) =>
                                   setVForm({ ...vForm, stock: e.target.value })
                                 }
                               />
                               <button
-                                onClick={() => addVariant(p.id)}
+                                onClick={() => addVariants(p)}
                                 className="bg-lily-text text-white text-sm font-semibold rounded-xl hover:bg-lily-rose"
                               >
-                                Нэмэх
+                                Нэмэх ({vForm.sizes.length})
                               </button>
                             </div>
+                            <p className="text-[11px] text-lily-muted mt-2">
+                              Сонгосон хэмжээ бүрт нэг мөр үүснэ. Хэмжээ тус
+                              бүрийн тоо өөр бол тусад нь нэм.
+                            </p>
                           </div>
                         </div>
                       )}
@@ -480,14 +533,34 @@ export default function AdminPage() {
                         Захиалга #{o.id}
                       </p>
                       <p className="text-xs text-lily-muted">
-                        Хэрэглэгч #{o.user_id} ·{" "}
+                        {o.user_name} · {o.phone} ·{" "}
                         {new Date(o.created_at).toLocaleDateString("en-CA")}
                       </p>
+                      <p className="text-xs text-lily-text mt-1">{o.address}</p>
+                      {o.note && (
+                        <p className="text-xs text-lily-muted">
+                          Тайлбар: {o.note}
+                        </p>
+                      )}
                     </div>
                     <div className="flex items-center gap-4">
                       <span className="text-sm font-semibold text-lily-rose">
                         {Number(o.total_price).toLocaleString()}₮
                       </span>
+
+                      <span className="text-[11px] text-lily-muted">
+                        {o.payment_method === "transfer" ? "Данс" : "Бэлэн"}
+                      </span>
+                      <button
+                        onClick={() => togglePaid(o)}
+                        className={`text-[11px] font-semibold px-3 py-1 rounded-full ${
+                          o.payment_status === "paid"
+                            ? "bg-green-50 text-green-600"
+                            : "bg-amber-50 text-amber-600"
+                        }`}
+                      >
+                        {o.payment_status === "paid" ? "Төлсөн" : "Төлөөгүй"}
+                      </button>
                       <select
                         value={o.status}
                         onChange={(e) => updateStatus(o.id, e.target.value)}
