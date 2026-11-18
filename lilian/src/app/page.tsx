@@ -30,6 +30,22 @@ function HomeContent() {
   );
   const [loading, setLoading] = useState(true);
   const [products, setProducts] = useState<any[]>([]);
+  const [covers, setCovers] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    fetch(`${API}/products`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!Array.isArray(data)) return;
+        const m: Record<string, string> = {};
+        for (const p of data) {
+          const img = p.images?.[0]?.image_url;
+          if (img && !m[p.category]) m[p.category] = img;
+        }
+        setCovers(m);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const c = searchParams.get("category");
@@ -52,7 +68,7 @@ function HomeContent() {
     fetch(url)
       .then((res) => res.json())
       .then((data) => {
-        if (cancelled) return; 
+        if (cancelled) return;
         setProducts(Array.isArray(data) ? data : []);
         setLoading(false);
       })
@@ -108,22 +124,32 @@ function HomeContent() {
       {/* Category strip */}
       <section className="py-16 bg-lily-blush">
         <div className="max-w-7xl mx-auto px-6">
-          <div className="grid grid-cols-3 gap-4">
-            {CATEGORIES.map(({ label, img, cat }) => (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            {CATEGORIES.map(({ label, cat }) => (
               <button
                 key={cat}
-                onClick={() => setActiveCategory(cat)}
-                className="group relative overflow-hidden rounded-2xl aspect-[4/3]"
+                onClick={() => {
+                  setActiveCategory(cat);
+                  document
+                    .getElementById("products")
+                    ?.scrollIntoView({ behavior: "smooth" });
+                }}
+                className="group relative overflow-hidden rounded-3xl aspect-[3/4] bg-gradient-to-br from-lily-soft via-lily-pink/60 to-lily-accent/70 text-left"
               >
-                <img
-                  src={img}
-                  alt={label}
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-lily-text/30 group-hover:bg-lily-text/20 transition-colors" />
-                <div className="absolute inset-0 flex items-end p-5">
-                  <span className="font-display text-2xl font-medium text-white">
+                {covers[cat] && (
+                  <img
+                    src={covers[cat]}
+                    alt={label}
+                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-[#3d0f20]/75 via-transparent to-transparent" />
+                <div className="absolute inset-x-0 bottom-0 p-6">
+                  <span className="block font-display text-3xl font-medium text-white">
                     {label}
+                  </span>
+                  <span className="inline-block mt-2 text-xs tracking-[0.2em] uppercase text-lily-pink group-hover:translate-x-1 transition-transform">
+                    Үзэх →
                   </span>
                 </div>
               </button>
@@ -203,7 +229,6 @@ function HomeContent() {
           </div>
         </div>
       </section>
-  
     </div>
   );
 }
